@@ -98,11 +98,21 @@ EXPECTED JSON SCHEMA FORMAT:
 
         const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text().trim();
+        const responseText = result.response.text();
         
-        // Secondary clean mechanism in case markdown wrapper notations filter through
-        const cleanedJsonString = responseText.replace(/^```json\s*/i, '').replace(/\s*
-```$/, '');
+        // Bulletproof non-regex cleaning block to strip markdown wrappers safely
+        let cleanedJsonString = responseText.trim();
+        if (cleanedJsonString.startsWith("```json")) {
+            cleanedJsonString = cleanedJsonString.substring(7);
+        } else if (cleanedJsonString.startsWith("
+```")) {
+            cleanedJsonString = cleanedJsonString.substring(3);
+        }
+        
+        if (cleanedJsonString.endsWith("```")) {
+            cleanedJsonString = cleanedJsonString.substring(0, cleanedJsonString.length - 3);
+        }
+        cleanedJsonString = cleanedJsonString.trim();
         
         const mcqData = JSON.parse(cleanedJsonString);
         res.json(mcqData);
