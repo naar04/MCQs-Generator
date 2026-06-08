@@ -16,15 +16,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Middleware - Configured to accept communication explicitly from your GitHub Pages URL
+app.use(cors({
+    origin: ['https://naar04.github.io', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Multer Config for PDF Upload
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure data file exists
+// Ensure data file exists for local caching fallback
 const DATA_FILE = path.join(__dirname, 'data', 'history.json');
 if (!fs.existsSync(path.dirname(DATA_FILE))) {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
@@ -36,10 +41,10 @@ if (!fs.existsSync(DATA_FILE)) {
 // Initialize Gemini API with the correct class name
 const aiKey = process.env.GEMINI_API_KEY;
 if (!aiKey) {
-    console.error("CRITICAL ERROR: GEMINI_API_KEY environment variable is missing inside .env!");
+    console.error("CRITICAL ERROR: GEMINI_API_KEY environment variable is missing inside Render Settings!");
 }
 
-const ai = new GoogleGenerativeAI(aiKey);
+const ai = new GoogleGenerativeAI(aiKey || "placeholder_key");
 
 // --- ENDPOINTS ---
 
@@ -103,7 +108,8 @@ EXPECTED JSON SCHEMA FORMAT:
         const responseText = result.response.text().trim();
         
         // Clean markdown wraps if Gemini accidentally includes them
-        const cleanedJsonString = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+        const cleanedJsonString = responseText.replace(/^```json\s*/i, '').replace(/\s*
+```$/, '');
         
         const mcqData = JSON.parse(cleanedJsonString);
         res.json(mcqData);
@@ -142,5 +148,5 @@ app.get('/api/history', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server executing seamlessly at http://localhost:${PORT}`);
+    console.log(`Server executing seamlessly on port ${PORT}`);
 });
