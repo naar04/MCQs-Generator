@@ -1,30 +1,29 @@
-import express from 'express';
-import cors from 'cors';
-import multer from 'multer';
-import pdfParse from 'pdf-parse';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
+const fs = require('fs');
+const path = require('path');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Security and Cross-Origin Configuration
+app.use(cors({
+    origin: ['https://naar04.github.io', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Multer Config for PDF Upload
+// Configure storage binary parameters for incoming files
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure data file exists
+// Ensure internal history tracking directories exist natively on start
 const DATA_FILE = path.join(__dirname, 'data', 'history.json');
 if (!fs.existsSync(path.dirname(DATA_FILE))) {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
@@ -33,17 +32,16 @@ if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify([]));
 }
 
-// Initialize Gemini API with the correct class name
+// Authenticate Google AI Connection Strings
 const aiKey = process.env.GEMINI_API_KEY;
 if (!aiKey) {
-    console.error("CRITICAL ERROR: GEMINI_API_KEY environment variable is missing inside .env!");
+    console.error("CRITICAL ERROR: GEMINI_API_KEY environment variable is missing inside Render settings dashboard!");
 }
+const ai = new GoogleGenerativeAI(aiKey || "placeholder_key");
 
-const ai = new GoogleGenerativeAI(aiKey);
+// --- API ENDPOINTS ---
 
-// --- ENDPOINTS ---
-
-// 1. PDF Text Extraction Endpoint
+// 1. Core PDF Content Extraction Pipeline
 app.post('/api/upload-pdf', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -52,19 +50,19 @@ app.post('/api/upload-pdf', upload.single('file'), async (req, res) => {
         const data = await pdfParse(req.file.buffer);
         res.json({ text: data.text });
     } catch (error) {
-        console.error("PDF Parsing Error:", error);
-        res.status(500).json({ error: 'Failed to extract text from PDF' });
+        console.error("PDF Parsing Error Logged:", error);
+        res.status(500).json({ error: 'Failed to extract text matrix from provided PDF structure' });
     }
 });
 
-// 2. MCQ Generation Endpoint (Using Gemini 1.5 Flash)
+// 2. Direct Gemini AI MCQ Compilation Engine
 app.post('/api/generate-mcqs', async (req, res) => {
     try {
         const { sourceText, topic, className, subject, board, difficulty, count } = req.body;
         
         let targetContent = sourceText || topic;
         if (!targetContent) {
-            return res.status(400).json({ error: 'Missing topic or reference text content' });
+            return res.status(400).json({ error: 'Missing context prompt baseline configurations' });
         }
 
         const prompt = `
@@ -100,20 +98,31 @@ EXPECTED JSON SCHEMA FORMAT:
 
         const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text().trim();
+        const responseText = result.response.text();
         
-        // Clean markdown wraps if Gemini accidentally includes them
-        const cleanedJsonString = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+        // Bulletproof non-regex cleaning block to strip markdown wrappers safely
+        let cleanedJsonString = responseText.trim();
+        if (cleanedJsonString.startsWith("```json")) {
+            cleanedJsonString = cleanedJsonString.substring(7);
+        } else if (cleanedJsonString.startsWith("
+```")) {
+            cleanedJsonString = cleanedJsonString.substring(3);
+        }
+        
+        if (cleanedJsonString.endsWith("```")) {
+            cleanedJsonString = cleanedJsonString.substring(0, cleanedJsonString.length - 3);
+        }
+        cleanedJsonString = cleanedJsonString.trim();
         
         const mcqData = JSON.parse(cleanedJsonString);
         res.json(mcqData);
     } catch (error) {
-        console.error("Gemini Generation Error:", error);
-        res.status(500).json({ error: 'Failed to process AI generated content structure.' });
+        console.error("Gemini AI Core Frame Exception Failure:", error);
+        res.status(500).json({ error: 'Processing failure during structured LLM assessment generation cycle.' });
     }
 });
 
-// 3. Save History Endpoint
+// 3. Append Performance Entry History 
 app.post('/api/save-history', (req, res) => {
     try {
         const newRecord = req.body;
@@ -125,22 +134,22 @@ app.post('/api/save-history', (req, res) => {
         
         res.json({ success: true, history });
     } catch (error) {
-        console.error("Save History Error:", error);
-        res.status(500).json({ error: 'Failed to write history data' });
+        console.error("History Registry Append Failure:", error);
+        res.status(500).json({ error: 'Failed to synchronize record elements within local runtime storage paths' });
     }
 });
 
-// 4. Fetch History Endpoint
+// 4. Fetch History Records Log
 app.get('/api/history', (req, res) => {
     try {
         const fileData = fs.readFileSync(DATA_FILE, 'utf8');
         res.json(JSON.parse(fileData));
     } catch (error) {
-        console.error("Fetch History Error:", error);
-        res.status(500).json({ error: 'Failed to read history records' });
+        console.error("History Directory Read Trace Exception:", error);
+        res.status(500).json({ error: 'Failed to access local structural array files logs data' });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server executing seamlessly at http://localhost:${PORT}`);
+    console.log(`Node CommonJS Engine production pipeline successfully operational on port context ${PORT}`);
 });
