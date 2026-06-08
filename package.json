@@ -1,7 +1,7 @@
 {
-  "name": "resume-parser-backend",
+  "name": "mcq-generator-backend",
   "version": "1.0.0",
-  "description": "Backend for PDF resume parsing using Gemini API",
+  "description": "Backend engine for PDF parsing and Gemini AI MCQ generation",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
