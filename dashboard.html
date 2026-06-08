@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI MCQ Generator Pro</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo">MCQ Gen Pro</div>
+        <ul class="menu-links">
+            <li><a href="#" class="nav-trigger active" data-target="dashboard-sec">Dashboard</a></li>
+            <li><a href="#" class="nav-trigger" data-target="generate-sec">Generate MCQs</a></li>
+            <li><a href="#" class="nav-trigger" data-target="history-sec">History Log</a></li>
+            <li><a href="index.html">Exit Application</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        
+        <section id="dashboard-sec" class="app-section active">
+            <h1>Welcome Back, Educator</h1>
+            <p class="subtitle">Quick overview of system engine functions and creation parameters.</p>
+            
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Rapid Smart Generator</h3>
+                    <p style="color: var(--text-secondary); margin: 1rem 0 1.5rem 0;">Create optimized tests from textbook items, raw research logs, or general curricula subjects within moments.</p>
+                    <button class="btn quick-route-gen" onclick="document.querySelector('[data-target=generate-sec]').click()">Launch Workspace</button>
+                </div>
+                <div class="card">
+                    <h3>Application System Status</h3>
+                    <p style="color: var(--text-secondary); margin: 1rem 0 0.5rem 0;">AI Layer: <strong>Google Gemini 1.5 Flash Connected</strong></p>
+                    <p style="color: var(--text-secondary);">Local File Storage Instance: <strong>Active</strong></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="generate-sec" class="app-section">
+            <h1>AI Test Engine Workspace</h1>
+            <p class="subtitle">Provide input contexts below to run synthesis operations.</p>
+            
+            <div class="grid-2">
+                <div class="card">
+                    <div class="form-group">
+                        <label>Option A: Document Context Upload (.PDF)</label>
+                        <div class="file-drop-zone" id="dropZone">
+                            <span id="file-label-text">Drag & Drop PDF or Click to Select File</span>
+                            <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Option B: Content / Paste Notes</label>
+                        <textarea id="pastedNotes" rows="6" placeholder="Paste structural chapters or reference study sheets directly..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Option C: Target Topic String</label>
+                        <input type="text" id="topicInput" placeholder="e.g. Quantum Mechanics introductory properties">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="grid-2" style="gap: 1rem; grid-template-columns: 1fr 1fr;">
+                        <div class="form-group">
+                            <label>Class Level</label>
+                            <select id="paramClass">
+                                <option>Class 9</option>
+                                <option>Class 10</option>
+                                <option>Class 11</option>
+                                <option>Class 12</option>
+                                <option>University Level</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Subject Topic</label>
+                            <select id="paramSubject">
+                                <option>Physics</option>
+                                <option>Chemistry</option>
+                                <option>Biology</option>
+                                <option>Computer Science</option>
+                                <option>General History</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="gap: 1rem; grid-template-columns: 1fr 1fr;">
+                        <div class="form-group">
+                            <label>Academic Board</label>
+                            <select id="paramBoard">
+                                <option>Cambridge / O-A Levels</option>
+                                <option>Federal Board</option>
+                                <option>Sindh Board</option>
+                                <option>Punjab Board</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Difficulty</label>
+                            <select id="paramDifficulty">
+                                <option>Easy</option>
+                                <option>Medium</option>
+                                <option>Hard</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Total Questions Count</label>
+                        <select id="paramCount">
+                            <option value="3">3 Questions</option>
+                            <option value="5">5 Questions</option>
+                            <option value="10">10 Questions</option>
+                        </select>
+                    </div>
+
+                    <button class="btn" id="generateBtn" style="margin-top: 1rem;">Generate Assessment Now</button>
+                </div>
+            </div>
+
+            <div class="loader-container" id="engineLoader">
+                <div class="spinner"></div>
+                <h3>Gemini AI Engine System Synthesizing...</h3>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem;">Reading and structuring objective parameters</p>
+            </div>
+
+            <div id="quizInterface" class="card" style="margin-top: 2.5rem; display: none;">
+                <div id="quizHeaderBlock"></div>
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+                
+                <form id="quizForm">
+                    <div id="quizQuestionsContainer"></div>
+                    <button type="submit" class="btn" style="background: var(--accent-gradient);">Complete Evaluation & Submit</button>
+                </form>
+
+                <div id="quizResultsBlock" style="display: none; margin-top: 2rem;"></div>
+            </div>
+        </section>
+
+        <section id="history-sec" class="app-section">
+            <h1>Saved Historic Evaluations</h1>
+            <p class="subtitle">Access, launch, or export records saved to disk.</p>
+            <div id="historyLogsContainer"></div>
+        </section>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
