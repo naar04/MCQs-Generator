@@ -1,9 +1,8 @@
 {
-  "name": "ai-mcq-generator-pro",
+  "name": "resume-parser-backend",
   "version": "1.0.0",
-  "description": "Production-ready AI MCQ Generator Pro SaaS application",
+  "description": "Backend for PDF resume parsing using Gemini API",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
