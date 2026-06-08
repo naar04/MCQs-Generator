@@ -1,152 +1,112 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import pdfParse from 'pdf-parse';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
+// 1. Import createRequire to safely mix CommonJS subfiles into our modern ES Module
+import { createRequire } from 'module';
+
 dotenv.config();
 
-// Recreating __filename and __dirname safely for ES Modules environment
+// 2. Bypass pdf-parse's broken index.js file and pull directly from its internal library file
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(cors());
+app.use(express.json());
 
-// Middleware configuration
-app.use(cors({
-    origin: ['https://naar04.github.io', 'http://localhost:3000'],
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type']
-}));
+const upload = multer({ dest: 'uploads/' });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Multer Storage Configuration for incoming PDF binaries
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Ensure data persistence history directory paths exist cleanly on startup
-const DATA_FILE = path.join(__dirname, 'data', 'history.json');
-if (!fs.existsSync(path.dirname(DATA_FILE))) {
-    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-}
-if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
+// Ensure upload cache folder structure exists on startup
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
 }
 
-// Initialize Google Gemini SDK Client Connection
-const aiKey = process.env.GEMINI_API_KEY;
-if (!aiKey) {
-    console.error("CRITICAL CONFIGURATION ERROR: GEMINI_API_KEY is missing inside Render settings dashboard!");
-}
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const ai = new GoogleGenerativeAI(aiKey || "placeholder_key");
-
-// --- ENDPOINTS ---
-
-// 1. PDF Text Processing Pipeline Engine Endpoint
-app.post('/api/upload-pdf', upload.single('file'), async (req, res) => {
+app.post('/api/analyze', upload.single('resume'), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+            return res.status(400).json({ error: 'No file uploaded.' });
         }
-        const data = await pdfParse(req.file.buffer);
-        res.json({ text: data.text });
-    } catch (error) {
-        console.error("PDF Parsing Error Logged:", error);
-        res.status(500).json({ error: 'Failed to extract text matrix from provided PDF structure' });
-    }
-});
 
-// 2. MCQ Generator Core Process Endpoint
-app.post('/api/generate-mcqs', async (req, res) => {
-    try {
-        const { sourceText, topic, className, subject, board, difficulty, count } = req.body;
+        const jobDescription = req.body.jobDescription || '';
+        const dataBuffer = fs.readFileSync(req.file.path);
         
-        let targetContent = sourceText || topic;
-        if (!targetContent) {
-            return res.status(400).json({ error: 'Missing context prompt baseline configurations' });
+        let pdfData;
+        try {
+            pdfData = await pdfParse(dataBuffer);
+        } catch (pdfError) {
+            console.error('PDF text extraction crashed:', pdfError);
+            return res.status(422).json({ error: 'Failed to extract text from the PDF file.' });
         }
+
+        const resumeText = pdfData.text;
+
+        // Cleanup temp file instantly after successful buffer processing
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Error removing temporary file:', err);
+        });
+
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ error: 'Server configuration error: Gemini API Key is missing.' });
+        }
+
+        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         const prompt = `
-You are an expert examiner. Generate exactly ${count} multiple-choice questions (MCQs) based on the following context parameters.
+        You are an expert ATS (Applicant Tracking System) and HR manager. Analyze the following resume against the provided job description.
+        
+        Job Description:
+        ${jobDescription}
+        
+        Resume Text:
+        ${resumeText}
+        
+        Provide the analysis strictly as a valid JSON object matching this schema:
+        {
+          "matchPercentage": number,
+          "keywordAnalysis": {
+            "matchedKeywords": ["string"],
+            "missingKeywords": ["string"]
+          },
+          "strengths": ["string"],
+          "weaknesses": ["string"],
+          "recommendations": ["string"]
+        }
+        Return ONLY the raw JSON structure, absolutely no wrapping markdown or markdown blocks like \`\`\`json.
+        `;
 
-CONTEXT / TOPIC:
-"${targetContent}"
-
-PARAMETERS:
-- Target Academic Level: ${className}
-- Subject Domain: ${subject}
-- Examination Board: ${board}
-- Academic Difficulty Level: ${difficulty}
-
-CRITICAL RULES:
-1. Base questions strictly on the context if source text is provided.
-2. Provide exactly 4 options per question.
-3. Mark exactly one correct option string value ("A", "B", "C", or "D").
-4. Respond ONLY with a valid, clean JSON object matching the exact structure below. No markdown wrappers, no \`\`\`json syntax block.
-
-EXPECTED JSON SCHEMA FORMAT:
-{
-  "title": "A concise metadata heading summarizing this set",
-  "questions": [
-    {
-      "question": "Clear and definitive question string?",
-      "options": ["Option A statement", "Option B statement", "Option C statement", "Option D statement"],
-      "answer": "A"
-    }
-  ]
-}
-`;
-
-        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text().trim();
-        
+
+        // Standard sanitization buffer in case markdown indicators still creep into the raw stream
         const cleanedJsonString = responseText.replace(/^```json\s*/i, '').replace(/\s*
-```$/, '');
-        
-        const mcqData = JSON.parse(cleanedJsonString);
-        res.json(mcqData);
+```$/, '').trim();
+
+        try {
+            const jsonOutput = JSON.parse(cleanedJsonString);
+            return res.json(jsonOutput);
+        } catch (parseError) {
+            console.error('AI output did not contain valid JSON:', responseText);
+            return res.status(500).json({ error: 'Failed to process AI assessment into standard format.' });
+        }
+
     } catch (error) {
-        console.error("Gemini AI Core Frame Exception Failure:", error);
-        res.status(500).json({ error: 'Processing failure during structured LLM assessment generation cycle.' });
+        console.error('Server error encountered:', error);
+        return res.status(500).json({ error: 'Internal server processing failure.' });
     }
 });
 
-// 3. Save History Entry Array Record Endpoint
-app.post('/api/save-history', (req, res) => {
-    try {
-        const newRecord = req.body;
-        const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-        const history = JSON.parse(fileData);
-        
-        history.unshift(newRecord);
-        fs.writeFileSync(DATA_FILE, JSON.stringify(history, null, 2));
-        
-        res.json({ success: true, history });
-    } catch (error) {
-        console.error("History Registry Append Failure:", error);
-        res.status(500).json({ error: 'Failed to synchronize record elements within local runtime storage paths' });
-    }
-});
-
-// 4. Fetch Complete Evaluation Log Registries Endpoint
-app.get('/api/history', (req, res) => {
-    try {
-        const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-        res.json(JSON.parse(fileData));
-    } catch (error) {
-        console.error("History Directory Read Trace Exception:", error);
-        res.status(500).json({ error: 'Failed to access local structural array files logs data' });
-    }
-});
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Node Engine production pipeline successfully operational on port context ${PORT}`);
+    console.log(`Node backend pipeline fully operational on port ${PORT}`);
 });
